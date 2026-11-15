@@ -1,0 +1,6 @@
+customtkinter
+yt-dlp[default]
+psutil
+requests
+mutagen
+pillow

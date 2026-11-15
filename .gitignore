@@ -1,0 +1,19 @@
+# personal data: never upload these
+settings.json
+state.json
+jobs.json
+failed_items.txt
+*cookies*.txt
+*.csv
+downloads/
+.cache/
+
+# build output and tools
+.venv/
+build/
+build_linux/
+dist/
+backup/
+__pycache__/
+*.exe
+app.ico
