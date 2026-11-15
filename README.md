@@ -1,87 +1,129 @@
-# Music Downloader
+# 🎵 Music Downloader
 
-A simple desktop app that turns a **Spotify playlist** or a **YouTube playlist** into a folder of audio files (M4A, MP3 or Opus), organised as `Artist/Song`. It also has a **Quick Converter** for turning any YouTube link into audio.
+Paste in a Spotify or YouTube playlist, press START, and get a folder of music. That's the whole idea.
 
-Plain black-and-white interface. Windows and Linux.
+It makes M4A, MP3 or Opus files, sorted into `Artist/Song`, and it has a little **Quick Converter** for turning any YouTube link into audio. The window is deliberately plain: black, white, and boxes. Works on Windows and Linux.
 
-> Use it for music you have the right to download. See [Disclaimer](#disclaimer).
+---
+
+## ⚠️ Please read this first
+
+**This is version 1, and it's a hobby project. Expect bugs.**
+
+- **About 50% of this app is vibe coded** with an AI assistant, and **about 50% I did by hand.** I'm not a professional developer. I wrote what I could, asked for help with the rest, and tested it on my own computer.
+- **It has only been tested on my own setup so far.** It might misbehave on yours. It might crash, skip songs, name a file strangely, or do something I never thought of.
+- **Some things I haven't been able to test properly yet**, like the Linux AppImage on different distros.
+- **Don't trust it with anything important.** It only downloads music files, but please don't point it at a folder you can't afford to clutter.
+
+### 🐛 Found a bug? Please tell me!
+
+That's the most helpful thing you can do. I really do want to fix these.
+
+1. Go to the [**Issues**](../../issues) tab and press **New issue**.
+2. Tell me what you did, what you expected, and what happened instead.
+3. If the app showed an error, paste it in. The log under **Settings** in the app is the best thing to copy from.
+4. Mention your system (Windows 11? Ubuntu 24.04?) and whether you used a Spotify CSV, a YouTube link, or the Quick Converter.
+
+Even a short "it crashed when I did X" is useful. Comments, ideas and "this confused me" notes are welcome too. Nothing is too small.
+
+> Please don't paste your cookies file or anything private into an issue. The error text is enough.
+
+---
+
+## What you can do with it
+
+- **Download a Spotify playlist.** Export it with [Exportify](https://exportify.net) and give the app the CSV.
+- **Download a YouTube playlist.** Paste the link, or give it a CSV or text file full of links.
+- **Convert any YouTube link** to MP3, M4A or Opus with the Quick Converter.
+- **Stop whenever you like.** It remembers where it was and picks up again when you press START.
+- **Survive a bad connection.** If your Wi-Fi drops, it waits and retries instead of marking songs as failed.
 
 ---
 
 ## Download
 
-Go to the [**Releases**](../../releases) page and grab the file for your system:
+Go to the [**Releases**](../../releases) page and take the file for your system:
 
-| System | File | How to run |
+| System | File | How to run it |
 |---|---|---|
 | Windows | `MusicDownloader.exe` | Double-click it. |
-| Linux (any recent distro) | `MusicDownloader.AppImage` | `chmod +x MusicDownloader.AppImage`, then `./MusicDownloader.AppImage` |
+| Linux | `MusicDownloader.AppImage` | `chmod +x MusicDownloader.AppImage`, then `./MusicDownloader.AppImage` |
 
-Linux note: if it won't start, install FUSE (`sudo apt install libfuse2` on Ubuntu/Debian), or run it with `./MusicDownloader.AppImage --appimage-extract-and-run`. 64-bit x86 only.
+You don't need to install Python or anything else. ffmpeg and the other tools are packed inside.
 
-No installation and no Python needed. ffmpeg and everything else is bundled.
-
----
-
-## First launch
-
-A setup window asks for two things:
-
-1. **YouTube cookies (required).** YouTube blocks automated downloads without them.
-   - Install the "Get cookies.txt LOCALLY" extension (links are in the setup window, for Chrome and Firefox).
-   - Open youtube.com while logged in, use the extension to export `cookies.txt`, and select that file in the app.
-2. **Your playlist (optional, can be set later):**
-   - **Spotify CSV**: export your playlist with [Exportify](https://exportify.net) and pick the CSV.
-   - **YouTube link**: paste a YouTube playlist link (a single video link works too).
-   - **YouTube CSV**: a CSV or text file with one YouTube link per line, or a Google Takeout playlist CSV.
-
-Your cookies and settings stay on your own computer. They are never uploaded anywhere.
+A few things worth knowing:
+- **Windows** may show a "Windows protected your PC" warning, because the app isn't signed. Click **More info → Run anyway** if you trust it.
+- **Linux:** if it won't open, install FUSE (`sudo apt install libfuse2` on Ubuntu or Debian), or start it with `./MusicDownloader.AppImage --appimage-extract-and-run`. It's for 64-bit Intel/AMD computers only.
 
 ---
 
-## Using it
+## First time setup
 
-The main window has:
+When you open it the first time, a setup window asks for two things.
 
-- **Spotify / YouTube switch** next to the playlist box. Each side remembers its own file or link.
-- **Save to**: the folder your music goes into.
-- **START / STOP / RETRY**: start the batch, stop it safely (progress is saved), or retry tracks that failed.
-- **Convert**: opens the Quick Converter.
-- **Settings**: advanced options and a live log with per-worker progress bars.
+**1. YouTube cookies (required).** YouTube blocks downloads from programs that aren't logged in. To get around that, you give the app a cookies file from your browser:
+- Install the "Get cookies.txt LOCALLY" extension (the setup window has buttons for Chrome and Firefox).
+- Open youtube.com while logged in, use the extension to export `cookies.txt`, and choose that file in the app.
 
-### Spotify modes (Settings → Mode)
+Your cookies stay on your own computer. The app never uploads them anywhere.
 
-| Mode | What it downloads |
+**2. Your playlist (optional, you can do it later):**
+- **Spotify CSV**: a file exported from Exportify.
+- **YouTube link**: a playlist link (a single video link works too).
+- **YouTube CSV**: a CSV or text file with one YouTube link per line, or a Google Takeout playlist CSV.
+
+---
+
+## How to use it
+
+The main window is simple:
+
+- **Spotify / YouTube switch**, right next to the playlist box. Each side remembers its own file or link.
+- **Save to**, which is the folder your music goes into.
+- **START / STOP / RETRY**: start, stop safely (progress is saved), or retry songs that failed.
+- **Convert** opens the Quick Converter.
+- **Settings** has the extra options and a live log.
+
+### Spotify modes
+
+Under **Settings → Mode**, for Spotify playlists only:
+
+| Mode | What you get |
 |---|---|
-| Full Artist Catalog | Every album/EP by every artist in your playlist |
+| Full Artist Catalog | Every album and EP from every artist in your playlist (this takes a long time) |
 | Top 10 Songs | Each artist's ten most popular tracks |
-| Playlist Tracks Only | Only the songs in your CSV (fastest) |
+| Playlist Tracks Only | Just the songs in your CSV (the fastest) |
 | Original Albums | The albums your songs came from |
 
-YouTube playlists always download exactly the videos in the list. Mode is not used.
+YouTube playlists always download exactly the videos in the list.
 
 ### Quick Converter
 
-Paste one or more YouTube links (one per line). A playlist link converts every video in it. Choose **MP3, M4A or Opus**, the quality, and a folder, then press **CONVERT**.
+Paste one or more YouTube links, one per line. A playlist link converts every video inside it. Pick **MP3, M4A or Opus**, the quality and a folder, and press **CONVERT**.
 
 ---
 
-## Staying safe from YouTube bans
+## Please don't get yourself banned
 
-- Keep **Delay** at 2–3 seconds or more. Under 0.7 seconds the app warns you, because that is how IPs get temporarily blocked.
-- Use your cookie file and reload it (Settings → Reload Cookies) if you start seeing bot errors.
-- If your internet drops, the app waits for it to come back and retries the same track. It doesn't mark the songs as failed.
+YouTube doesn't love automated downloads, so the app tries to be gentle:
 
-## Good to know
-
-- **Resume:** stop any time. Press START again with the same settings and it continues where it stopped. Songs already downloaded are skipped.
-- **Max Length** skips anything longer than your limit, which helps avoid DJ sets and podcasts.
-- **Block Words** skips titles containing words like live, remix, karaoke (Spotify modes).
-- Where files are kept: on Windows, next to the exe. On Linux, settings are in `~/.local/share/MusicDownloader` and music defaults to `~/Music/MusicDownloader`.
+- Keep the **Delay** at 2–3 seconds or more. The app warns you if you go under 0.7 seconds, because that's how IPs get temporarily blocked.
+- If you start seeing bot errors, reload your cookies in **Settings → Reload Cookies**.
 
 ---
 
-## Run from source
+## Other things worth knowing
+
+- **Max Length** skips anything longer than the limit you set, which helps avoid DJ sets and podcasts.
+- **Block Words** skips titles with words like live, remix or karaoke (Spotify modes only).
+- **Full Artist Catalog** relies on MusicBrainz, a free service that can be slow or drop connections. If a few artists fail, just press START again. The ones that worked are remembered.
+- **Where your files go:** on Windows, next to the exe. On Linux, settings live in `~/.local/share/MusicDownloader` and music defaults to `~/Music/MusicDownloader`.
+
+---
+
+## For developers
+
+**Run from source:**
 
 ```bash
 git clone https://github.com/GBRDL/music-downloader.git
@@ -92,21 +134,24 @@ pip install -r requirements.txt
 python app.py
 ```
 
-You also need [ffmpeg](https://ffmpeg.org/download.html) on your PATH, and [Deno](https://deno.com) is recommended for yt-dlp's YouTube support. On Linux you need Tk (`sudo apt install python3-tk`).
+You also need [ffmpeg](https://ffmpeg.org/download.html) on your PATH, and [Deno](https://deno.com) is recommended for yt-dlp's YouTube support. On Linux you need Tk too (`sudo apt install python3-tk`).
 
-## Building the apps
+**Building the apps:**
+- **Windows exe:** `build_exe.bat` (needs a `.venv`, plus `ffmpeg.exe` and `deno.exe` next to the scripts).
+- **Linux AppImage:** built by GitHub Actions. Go to **Actions → Build Linux AppImage → Run workflow**, or publish a release with a tag like `v1.0` and it attaches the file for you. You can also run `./build_linux.sh` on Linux or WSL.
 
-- **Windows exe:** `build_exe.bat` (needs a `.venv`, `ffmpeg.exe` and `deno.exe` next to the scripts).
-- **Linux AppImage:** built automatically by GitHub Actions (**Actions → Build Linux AppImage → Run workflow**, or push a tag like `v1.0` to publish it under Releases). To build locally on Linux or WSL: `./build_linux.sh`.
+Pull requests are welcome, but remember that this is a first version, so the code is a bit rough.
 
-## Built with
+---
 
-[yt-dlp](https://github.com/yt-dlp/yt-dlp), [ffmpeg](https://ffmpeg.org), [customtkinter](https://github.com/TomSchimansky/CustomTkinter), [MusicBrainz](https://musicbrainz.org) (artist catalogs), [Deezer](https://developers.deezer.com) (top tracks) and [Exportify](https://exportify.net) (Spotify export).
+## Thanks to
+
+[yt-dlp](https://github.com/yt-dlp/yt-dlp), [ffmpeg](https://ffmpeg.org), [customtkinter](https://github.com/TomSchimansky/CustomTkinter), [MusicBrainz](https://musicbrainz.org), [Deezer](https://developers.deezer.com) and [Exportify](https://exportify.net). This project would be nothing without them.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Do what you like with it.
 
-## Disclaimer
+## Legal stuff
 
-This project is for personal use. Downloading content may violate the terms of service of YouTube and other sites, and copyrighted music may only be downloaded where you have the right to do so. You are responsible for how you use it. The project is not affiliated with YouTube, Spotify, Google or any of the services above.
+This project is for personal use. Downloading content can go against the terms of YouTube and other sites, and copyrighted music should only be downloaded where you have the right to do so. You are responsible for how you use this app. It isn't affiliated with YouTube, Spotify, Google or any of the services above.
