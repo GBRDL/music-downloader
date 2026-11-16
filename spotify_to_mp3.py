@@ -144,10 +144,10 @@ def find_audio_source(searcher: YoutubeDL, track: Track, tolerance: float, prima
 
 def download_raw(url: str, temp_dir: Path, artist: str, title: str, args: argparse.Namespace, thread_name: str, job_id: str = "0") -> Path:
     if STOP_CHECK_CALLBACK and STOP_CHECK_CALLBACK(): raise StopDownload()
-    safe_a, safe_t = safe_name(artist), safe_name(title)
     safe_job = "".join(ch for ch in str(job_id) if ch.isalnum() or ch in ("-", "_")) or "0"
     esc = lambda s: s.replace("%", "%%")
-    outtmpl = esc(str(temp_dir / f"{safe_job}_{safe_a} - {safe_t}")) + ".%(ext)s"
+    # Temp file is named by job id only: long or odd titles can't blow Windows' 260-character path limit.
+    outtmpl = esc(str(temp_dir / safe_job)) + ".%(ext)s"
     
     ffmpeg_exe = ffmpeg_path()
     opts = ydl_options(args, thread_name=thread_name, format="bestaudio/best", outtmpl=outtmpl, noplaylist=True, ffmpeg_location=ffmpeg_exe)
@@ -155,6 +155,16 @@ def download_raw(url: str, temp_dir: Path, artist: str, title: str, args: argpar
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
         return Path(ydl.prepare_filename(info))
+
+def source_audio_codec(path: Path) -> str:
+    """Audio codec of a downloaded file ('opus', 'aac', ...) as ffmpeg reports it; '' if it can't be read."""
+    try:
+        r = subprocess.run([ffmpeg_path(), "-hide_banner", "-i", str(path)], stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, errors="replace", timeout=30)
+        m = re.search(r"Audio:\s*([A-Za-z0-9_]+)", r.stderr or "")
+        return m.group(1).lower() if m else ""
+    except Exception:
+        return ""
 
 def convert_audio(raw_path: Path, target_stem: Path, fmt: str, quality: str, part_id: str = "0", stop_check=None) -> Path:
     ext = "m4a" if fmt == "m4a" else ("opus" if fmt == "opus" else "mp3")
@@ -169,13 +179,20 @@ def convert_audio(raw_path: Path, target_stem: Path, fmt: str, quality: str, par
     else: codec, bitrate = "libmp3lame", f"{quality}k"
 
     ffmpeg_exe = ffmpeg_path()
-    cmd = [ffmpeg_exe, "-y", "-i", str(raw_path), "-c:a", codec, "-b:a", bitrate, "-threads", "2", str(temp_path)]
+    # YouTube's best audio is usually Opus (webm) or AAC (m4a). When that already matches the wanted format, just
+    # re-wrap it: no quality loss, almost no CPU. Anything else is re-encoded as before.
+    src = source_audio_codec(raw_path)
+    if (ext == "opus" and src == "opus") or (ext == "m4a" and src == "aac"):
+        audio_args = ["-c:a", "copy"]
+    else:
+        audio_args = ["-c:a", codec, "-b:a", bitrate, "-threads", "2"]
+    cmd = [ffmpeg_exe, "-y", "-i", str(raw_path), "-vn", *audio_args, str(temp_path)]
 
     # CREATE_NO_WINDOW: the packaged Windows app has no console, so without it every ffmpeg run pops up its own
     # terminal window (and closing that window kills ffmpeg with exit code 3221225786).
     proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    deadline = time.monotonic() + 120
+    deadline = time.monotonic() + 600
     try:
         while proc.poll() is None:
             if stop_check and stop_check():

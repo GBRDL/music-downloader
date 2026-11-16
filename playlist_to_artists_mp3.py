@@ -14,7 +14,8 @@ else:
     BASE_DIR = Path(__file__).parent
 
 MB = "https://musicbrainz.org/ws/2"
-HEADERS = {"User-Agent": "playlist-to-artists-mp3/1.0 (contact@example.com)"}
+# MusicBrainz asks for a real contact (an e-mail or a project URL) and drops connections from anonymous-looking clients.
+HEADERS = {"User-Agent": "MusicDownloader/1.0 ( https://github.com/GBRDL/music-downloader )"}
 _last_call = 0.0
 CPU_PROFILE = "smart"
 LOG_CB = None
@@ -25,7 +26,25 @@ STATE_LOCK = threading.Lock()
 GLOBAL_CPU = 0.0
 _THROTTLE_LOCK = threading.Lock()
 _last_throttle = 0.0
+_last_throttle_log = 0.0
 _BATCH_DIGEST = ""  # identifies the job list that state.json progress belongs to
+
+class RateGate:
+    """Spaces the START of downloads at least `gap` seconds apart across ALL workers, so three workers can't
+    triple the request rate. (Before, each worker waited on its own, which is how you get soft-banned.)"""
+    def __init__(self):
+        self._lock = threading.Lock(); self._next = 0.0
+    def reset(self):
+        with self._lock: self._next = 0.0
+    def wait(self, gap: float) -> bool:
+        """Block until it's this caller's turn. True means stop was requested."""
+        with self._lock:
+            now = time.monotonic()
+            start = max(now, self._next)
+            self._next = start + max(0.0, gap)
+        return pause_or_stop(start - now)
+
+DOWNLOAD_GATE = RateGate()
 
 def atomic_write_text(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -40,7 +59,7 @@ def pause_or_stop(seconds: float) -> bool:
     return STOP_EVENT.wait(seconds)
 
 def check_hardware_throttle():
-    global _last_throttle
+    global _last_throttle, _last_throttle_log
     if STOP_EVENT.is_set():
         raise core.StopDownload("Stopped by user")
     if CPU_PROFILE == "max":
@@ -58,7 +77,9 @@ def check_hardware_throttle():
         else:
             return
         _last_throttle = now
-    if LOG_CB:
+        log_it = now - _last_throttle_log > 30.0   # the same line every 2 seconds just buries the real messages
+        if log_it: _last_throttle_log = now
+    if LOG_CB and log_it:
         LOG_CB(message)
     if pause_or_stop(pause):
         raise core.StopDownload("Stopped by user")
@@ -181,7 +202,7 @@ def fetch_catalog(artist: dict, limit: int, searcher: YoutubeDL, log_cb, max_dur
                 key = core.dedupe_key(title)
                 if key in seen: continue
                 seen.add(key)
-                tracks.append(core.Track(artist["name"], title, releases[0].get("title", ""), duration_s, f"https://musicbrainz.org/recording/{rec.get('id', '')}"))
+                tracks.append(core.Track(artist["name"], title, releases[0].get("title") or "", duration_s, f"https://musicbrainz.org/recording/{rec.get('id', '')}"))
 
     payload = {
         "max_duration": max_duration,
@@ -663,6 +684,7 @@ def _run_gui_batch(monitor_stop, csv_path: str, out_dir: str, limit: int, qualit
 
     download_queue = queue.Queue()
     convert_queue = queue.Queue()
+    DOWNLOAD_GATE.reset()
 
     initial_completed = len(completed_indices) + len(failed_indices)
 
@@ -709,6 +731,7 @@ def _run_gui_batch(monitor_stop, csv_path: str, out_dir: str, limit: int, qualit
                 continue
 
             try:
+                if DOWNLOAD_GATE.wait(delay): break
                 check_hardware_throttle()
                 with lock: track_start_cb(artist, track.title, len(completed_indices) + len(failed_indices), total_tracks)
                 
@@ -723,9 +746,6 @@ def _run_gui_batch(monitor_stop, csv_path: str, out_dir: str, limit: int, qualit
                 convert_queue.put((idx, artist, track, raw_path))
 
                 with lock: consecutive_fails = 0 # Reset backoff on success
-
-                if pause_or_stop(max(0, delay)):
-                    break
             except core.StopDownload:
                 break
             except Exception as e:
@@ -820,7 +840,8 @@ def _run_gui_batch(monitor_stop, csv_path: str, out_dir: str, limit: int, qualit
     tracks_done = len(completed_indices) + len(failed_indices)
     if not STOP_EVENT.is_set() and tracks_done >= total_tracks:
         update_ui_cb(total_tracks, total_tracks, "Batch Complete!")
-        if STATE_FILE.exists(): STATE_FILE.unlink()
-        if JOBS_FILE.exists(): JOBS_FILE.unlink()
+        if not retry_only:   # a retry run must not erase the resume data of the main batch
+            if STATE_FILE.exists(): STATE_FILE.unlink()
+            if JOBS_FILE.exists(): JOBS_FILE.unlink()
     else:
         update_ui_cb(tracks_done, total_tracks, "Stopped. Progress saved.")

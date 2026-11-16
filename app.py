@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import threading, time, psutil, json, webbrowser, sys, os, queue, subprocess
+from collections import deque
 from pathlib import Path
 import playlist_to_artists_mp3 as backend
 import tkinter as tk
@@ -279,6 +280,7 @@ class MusicApp(ctk.CTk):
         self.is_running = False; self.last_update_time = 0; self.is_advanced = False; self.risk_popup_open = False
         
         self.gui_queue = queue.Queue()
+        self.log_buffer = deque(maxlen=800)   # kept even while the Settings panel is closed, so no message is lost
         self.worker_thread = None; self._closing = False
         self.qc_running = False; self.qc_thread = None; self.qc_win = None
         self.build_minimal_ui()
@@ -397,19 +399,23 @@ class MusicApp(ctk.CTk):
             self.destroy()
 
     def poll_gui_queue(self):
-        while not self.gui_queue.empty():
-            try:
-                cmd = self.gui_queue.get_nowait()
-                if cmd[0] == "log": self._do_log(cmd[1])
-                elif cmd[0] == "overall": self._do_update_overall(cmd[1], cmd[2], cmd[3])
-                elif cmd[0] == "track_start": self._do_track_start(cmd[1], cmd[2], cmd[3], cmd[4])
-                elif cmd[0] == "track_end": self._do_track_end(cmd[1], cmd[2], cmd[3])
-                elif cmd[0] == "dl_bar": self._do_update_dl_bar(cmd[1], cmd[2])
-                elif cmd[0] == "cv_start": self._do_update_cv_start(cmd[1], cmd[2])
-                elif cmd[0] == "cv_end": self._do_update_cv_end(cmd[1])
-                elif cmd[0] == "reset": self._do_reset_ui()
-            except queue.Empty: break
-        self.after(100, self.poll_gui_queue)
+        try:
+            for _ in range(200):   # at most 200 updates per tick, so a flood of messages can't freeze the window
+                try: cmd = self.gui_queue.get_nowait()
+                except queue.Empty: break
+                try:
+                    if cmd[0] == "log": self._do_log(cmd[1])
+                    elif cmd[0] == "overall": self._do_update_overall(cmd[1], cmd[2], cmd[3])
+                    elif cmd[0] == "track_start": self._do_track_start(cmd[1], cmd[2], cmd[3], cmd[4])
+                    elif cmd[0] == "track_end": self._do_track_end(cmd[1], cmd[2], cmd[3])
+                    elif cmd[0] == "dl_bar": self._do_update_dl_bar(cmd[1], cmd[2])
+                    elif cmd[0] == "cv_start": self._do_update_cv_start(cmd[1], cmd[2])
+                    elif cmd[0] == "cv_end": self._do_update_cv_end(cmd[1])
+                    elif cmd[0] == "reset": self._do_reset_ui()
+                except Exception:
+                    pass   # one bad update (e.g. a widget that was just closed) must never stop the polling loop
+        finally:
+            self.after(100, self.poll_gui_queue)
 
     def update_risk_label(self, *args):
         if not hasattr(self, 'risk_label_adv'): return
@@ -482,6 +488,7 @@ class MusicApp(ctk.CTk):
             self.after(50, self.build_advanced_ui) 
         else:
             self.is_advanced = False; self.adv_container.pack_forget(); self.adv_container.destroy()
+            self.log_text = None; self.dl_bars = {}; self.cv_bars = {}   # those widgets no longer exist
             self.minsize(1, 1); self.geometry("640x420"); self.resizable(False, False)
             self.adv_btn.configure(text="Settings", fg_color=BG_CARD, border_color=BORDER, hover_color=BORDER)
 
@@ -540,7 +547,7 @@ class MusicApp(ctk.CTk):
         log_frame = ctk.CTkFrame(self.adv_container, corner_radius=0, fg_color=BG_CARD, border_width=1, border_color=BORDER)
         log_frame.grid(row=1, column=0, padx=(0, 15), pady=0, sticky="nsew"); log_frame.grid_rowconfigure(0, weight=1); log_frame.grid_columnconfigure(0, weight=1)
         self.log_text = ctk.CTkTextbox(log_frame, font=ctk.CTkFont(family="Consolas", size=11), corner_radius=0, fg_color=BG_MAIN, text_color=ACCENT, border_width=0)
-        self.log_text.grid(row=0, column=0, padx=10, pady=10, sticky="nsew"); self.log_text.insert("0.0", "> System Ready...\n"); self.log_text.configure(state="disabled")
+        self.log_text.grid(row=0, column=0, padx=10, pady=10, sticky="nsew"); self.log_text.insert("end", "".join(self.log_buffer) or "> System Ready...\n"); self.log_text.see("end"); self.log_text.configure(state="disabled")
 
         right_frame = ctk.CTkFrame(self.adv_container, corner_radius=0, fg_color=BG_CARD, border_width=1, border_color=BORDER, width=220)
         right_frame.grid(row=0, column=1, rowspan=2, sticky="nsew"); right_frame.grid_propagate(False)
@@ -577,9 +584,14 @@ class MusicApp(ctk.CTk):
         if filename: self.cookie_path_var.set(filename); self.save_settings(); self.gui_queue.put(("log", "Cookie file loaded."))
 
     def _do_log(self, message):
-        if not self.is_advanced or not hasattr(self, 'log_text'): return 
-        self.log_text.configure(state="normal"); self.log_text.insert("end", f"> {message}\n"); self.log_text.see("end"); self.log_text.configure(state="disabled")
-        if float(self.log_text.index('end-1c')) > 1000: self.log_text.delete("1.0", "500.0")
+        self.log_buffer.append(f"> {message}\n")
+        if not self.is_advanced or getattr(self, "log_text", None) is None: return
+        self.log_text.configure(state="normal"); self.log_text.insert("end", f"> {message}\n"); self.log_text.see("end")
+        try:
+            if int(self.log_text.index("end-1c").split(".")[0]) > 1000:
+                self.log_text.delete("1.0", "500.0")
+        except Exception: pass
+        self.log_text.configure(state="disabled")
 
     def _do_update_dl_bar(self, thread_name, pct):
         if self.is_advanced and thread_name in self.dl_bars: self.dl_bars[thread_name].set(pct)
