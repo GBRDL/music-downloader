@@ -19,16 +19,36 @@ if sys.platform == "win32":
     _hide_child_consoles()
 
 if getattr(sys, 'frozen', False):
-    if sys.platform.startswith("linux"):   # an AppImage is read-only: keep settings/progress in the user's data folder
-        BASE_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "MusicDownloader"
-        BASE_DIR.mkdir(parents=True, exist_ok=True)
-    else:
-        BASE_DIR = Path(sys.executable).parent
     INTERNAL_DIR = Path(sys._MEIPASS)
+    APP_DIR = Path(sys.executable).parent
     os.environ["PATH"] = str(INTERNAL_DIR) + os.pathsep + os.environ.get("PATH", "")   # bundled ffmpeg / deno
 else:
-    BASE_DIR = Path(__file__).parent
-    INTERNAL_DIR = BASE_DIR
+    APP_DIR = Path(__file__).parent
+    INTERNAL_DIR = APP_DIR
+
+def _data_dir() -> Path:
+    """One dedicated folder for settings, progress and caches, so nothing is scattered next to the program:
+    Windows %APPDATA%\\MusicDownloader, Linux ~/.local/share/MusicDownloader, macOS ~/Library/Application Support."""
+    if sys.platform == "win32":
+        root = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    elif sys.platform == "darwin":
+        root = Path.home() / "Library" / "Application Support"
+    else:
+        root = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share")
+    return root / "MusicDownloader"
+
+BASE_DIR = _data_dir()
+BASE_DIR.mkdir(parents=True, exist_ok=True)
+
+def _migrate_old_files():
+    """Older versions kept these next to the program. Move them over once so settings and progress carry on."""
+    for name in ("settings.json", "state.json", "jobs.json", "failed_items.txt"):
+        old, new = APP_DIR / name, BASE_DIR / name
+        try:
+            if old.is_file() and not new.exists(): shutil.move(str(old), str(new))
+        except Exception: pass
+
+_migrate_old_files()
 
 def ffmpeg_path() -> str:
     """The bundled ffmpeg when running as a packaged app, otherwise whatever is on PATH."""

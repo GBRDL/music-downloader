@@ -6,15 +6,10 @@ from pathlib import Path
 import playlist_to_artists_mp3 as backend
 import tkinter as tk
 
-if getattr(sys, 'frozen', False):
-    BASE_DIR = backend.BASE_DIR
-    ICON_PATH = Path(sys._MEIPASS) / "app.ico"
-else:
-    BASE_DIR = Path(__file__).parent
-    ICON_PATH = BASE_DIR / "app.ico"
+BASE_DIR = backend.BASE_DIR   # per-user data folder: AppData\Roaming\MusicDownloader on Windows
+ICON_PATH = (Path(sys._MEIPASS) if getattr(sys, 'frozen', False) else Path(__file__).parent) / "app.ico"
 SETTINGS_FILE = BASE_DIR / "settings.json"
-# Windows/dev: a "downloads" folder next to the app. Packaged Linux app (read-only AppImage): ~/Music/MusicDownloader.
-DEFAULT_OUT = str(Path.home() / "Music" / "MusicDownloader") if (getattr(sys, "frozen", False) and sys.platform.startswith("linux")) else "downloads"
+DEFAULT_OUT = str(Path.home() / "Music" / "MusicDownloader")
 
 THEME = "dark"   # "dark" = plain black, "light" = plain white
 if THEME == "light":

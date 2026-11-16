@@ -8,10 +8,7 @@ from yt_dlp import YoutubeDL
 import spotify_to_mp3 as core
 import threading
 
-if getattr(sys, 'frozen', False):
-    BASE_DIR = core.BASE_DIR
-else:
-    BASE_DIR = Path(__file__).parent
+BASE_DIR = core.BASE_DIR   # the per-user data folder (settings, progress, caches)
 
 MB = "https://musicbrainz.org/ws/2"
 # MusicBrainz asks for a real contact (an e-mail or a project URL) and drops connections from anonymous-looking clients.

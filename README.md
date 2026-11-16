@@ -117,7 +117,7 @@ YouTube doesn't love automated downloads, so the app tries to be gentle:
 - **Max Length** skips anything longer than the limit you set, which helps avoid DJ sets and podcasts.
 - **Block Words** skips titles with words like live, remix or karaoke (Spotify modes only).
 - **Full Artist Catalog** relies on MusicBrainz, a free service that can be slow or drop connections. If a few artists fail, just press START again. The ones that worked are remembered.
-- **Where your files go:** on Windows, next to the exe. On Linux, settings live in `~/.local/share/MusicDownloader` and music defaults to `~/Music/MusicDownloader`.
+- **Where things are kept:** settings, progress, the failed-songs list and caches live in one folder of their own: `%APPDATA%\MusicDownloader` on Windows (paste that into the File Explorer address bar) and `~/.local/share/MusicDownloader` on Linux. Your music goes wherever you set **Save to**, which defaults to `Music/MusicDownloader` in your home folder. Delete the settings folder to reset the app. Your cookies file stays wherever you saved it.
 
 ---
 
