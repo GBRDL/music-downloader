@@ -5,6 +5,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from yt_dlp import YoutubeDL
 
+def _hide_child_consoles(flag=0x08000000):
+    """Windows only: start every helper program (ffmpeg, deno) with CREATE_NO_WINDOW so no terminal ever opens.
+    Patched globally because yt-dlp launches ffmpeg/deno itself, and on Windows 11 each one can otherwise show up
+    as a terminal window."""
+    orig = subprocess.Popen.__init__
+    def quiet_init(self, *args, **kwargs):
+        kwargs["creationflags"] = kwargs.get("creationflags", 0) | flag
+        orig(self, *args, **kwargs)
+    subprocess.Popen.__init__ = quiet_init
+
+if sys.platform == "win32":
+    _hide_child_consoles()
+
 if getattr(sys, 'frozen', False):
     if sys.platform.startswith("linux"):   # an AppImage is read-only: keep settings/progress in the user's data folder
         BASE_DIR = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share") / "MusicDownloader"
