@@ -158,7 +158,10 @@ def convert_audio(raw_path: Path, target_stem: Path, fmt: str, quality: str, par
     ffmpeg_exe = ffmpeg_path()
     cmd = [ffmpeg_exe, "-y", "-i", str(raw_path), "-c:a", codec, "-b:a", bitrate, "-threads", "2", str(temp_path)]
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # CREATE_NO_WINDOW: the packaged Windows app has no console, so without it every ffmpeg run pops up its own
+    # terminal window (and closing that window kills ffmpeg with exit code 3221225786).
+    proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     deadline = time.monotonic() + 120
     try:
         while proc.poll() is None:
